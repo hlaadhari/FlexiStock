@@ -1,0 +1,116 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED_LEVEL1
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+enum MovementType {
+  IN
+  OUT
+  AUDIT
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  requests        Request[]
+  approvals       Approval[]
+  stockMovements  StockMovement[]
+}
+
+model Category {
+  id          Int        @id @default(autoincrement())
+  name        String
+  active      Boolean    @default(true)
+  parentId    Int?
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  items       Item[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Item {
+  id            Int      @id @default(autoincrement())
+  ref           String   @unique
+  name          String
+  categoryId    Int
+  category      Category @relation(fields: [categoryId], references: [id])
+  quantity      Int      @default(0)
+  minStock      Int      @default(0)
+  location      String?
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  movements     StockMovement[]
+  requestItems  RequestItem[]
+}
+
+model StockMovement {
+  id          Int          @id @default(autoincrement())
+  itemId      Int
+  item        Item         @relation(fields: [itemId], references: [id])
+  type        MovementType
+  quantity    Int
+  reason      String?
+  userId      Int
+  user        User         @relation(fields: [userId], references: [id])
+  createdAt   DateTime     @default(now())
+}
+
+model Request {
+  id          Int           @id @default(autoincrement())
+  userId      Int
+  user        User          @relation(fields: [userId], references: [id])
+  status      RequestStatus @default(PENDING)
+  priority    String        @default("NORMAL")
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  items       RequestItem[]
+  approvals   Approval[]
+}
+
+model RequestItem {
+  id        Int     @id @default(autoincrement())
+  requestId Int
+  request   Request @relation(fields: [requestId], references: [id])
+  itemId    Int
+  item      Item    @relation(fields: [itemId], references: [id])
+  quantity  Int
+}
+
+model Approval {
+  id        Int      @id @default(autoincrement())
+  requestId Int
+  request   Request  @relation(fields: [requestId], references: [id])
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  status    String   // APPROVED, REJECTED
+  comment   String?
+  createdAt DateTime @default(now())
+}
